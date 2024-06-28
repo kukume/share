@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑器</title>
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs/editor/editor.main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.15.14/lib/theme-chalk/index.css">
+    <style>
+        html, body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        @media (max-width: 768px) {
+            label {
+                width: 40px !important;
+                overflow: hidden; /* 可选，防止内容溢出 */
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-row>
+        <el-col>
+            <el-form label-width="80px" :inline="true" >
+                <el-form-item label="语言">
+                    <el-select v-model="form.language" placeholder="请选择语言" size="mini" style="width: 80px;">
+                        <el-option label="json" value="json"></el-option>
+                        <el-option label="yaml" value="yaml"></el-option>
+                    </el-select>
+                </el-form-item>
+<!--                <el-form-item>-->
+<!--                    <el-button type="primary" round @click="save" size="mini">保存</el-button>-->
+<!--                </el-form-item>-->
+<!--                <el-form-item>-->
+<!--                    <el-button type="danger" round size="mini" @click="deleteShare">删除</el-button>-->
+<!--                </el-form-item>-->
+                <el-form-item>
+                    <el-button-group size="mini">
+                        <el-button type="primary" round size="mini" icon="el-icon-set-up" @click="save"></el-button>
+                        <el-button type="danger" round size="mini" icon="el-icon-delete" @click="deleteShare"></el-button>
+                    </el-button-group>
+                </el-form-item>
+            </el-form>
+        </el-col>
+    </el-row>
+    <el-dialog title="请输入密码" :visible.sync="password.visible" :close-on-click-modal="false" :close-on-press-escape="false" :show-close="false">
+        <el-form @submit.native.prevent="checkPassword()">
+            <el-form-item label="密码">
+                <el-input v-model="password.value" @keyup.enter.native="checkPassword" autocomplete="off"></el-input>
+            </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+            <el-button type="primary" @click="checkPassword">确 定</el-button>
+        </div>
+    </el-dialog>
+</div>
+<div id="editor" style="flex: 1"></div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.14/lib/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs/loader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs/editor/editor.main.nls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs/editor/editor.main.js"></script>
+<script th:inline="javascript">
+    // 在页面加载完成后初始化 Monaco Editor
+    let editor
+    let data = {
+        value: ''
+    }
+    const password = [[${password}]]
+    const vue = new Vue({
+        el: '#app',
+        data() {
+            return {
+                form: {
+                    language: 'json'
+                },
+                password: {
+                    visible: false,
+                    value: ''
+                },
+                inputPassword: ''
+            }
+        },
+        created() {
+
+        },
+        mounted() {
+            if (password) {
+                this.password.visible = true
+            }
+        },
+        methods: {
+            save() {
+                const text = editor.getValue()
+                const language = this.form.language
+                if (!password) {
+                    this.$prompt('请输入密码', '提示', {
+                        showClose: false,
+                        showCancelButton: true,
+                        confirmButtonText: '确定',
+                    }).then(({ value }) => {
+                        const hash = CryptoJS.MD5(value).toString()
+                        this.innerSave({
+                            text, language, password: hash
+                        }, true)
+                    })
+                } else {
+                    this.innerSave({
+                        text, language, password
+                    }, false)
+                }
+            },
+            innerSave(body, b) {
+                axios.post('/api', body).then(({ data }) => {
+                    this.$alert('保存成功', '提示', {
+                        callback: action => {
+                            if (b) {
+                                window.location.href = data.password
+                            }
+                        }
+                    })
+                })
+            },
+            checkPassword() {
+                const value = this.password.value
+                const hash = CryptoJS.MD5(value).toString()
+                if (hash === password) {
+                    axios.get('/api?password=' + value).then(({ data }) => {
+                        editor.setValue(data.text)
+                        this.form.language = data.language
+                        this.password.visible = false
+                        this.inputPassword = value
+                    }).catch(() => {
+                        this.$alert('密码错误', '提示')
+                    })
+                } else this.$alert('密码错误', '提示')
+            },
+            deleteShare() {
+                const value = this.inputPassword
+                  if (value) {
+                      this.$confirm('确认是否删除？', '提示', {
+                          confirmButtonText: '确定',
+                          cancelButtonText: '取消',
+                          type: 'warning'
+                      }).then(() => {
+                          axios.delete('/api', {
+                              data: { password: value }
+                          }).then(() => {
+                              this.$alert('删除成功', '提示', {
+                                  callback: action => {
+                                      window.location.href = '/'
+                                  }
+                              })
+                          })
+                      })
+                  } else {
+                      this.$alert('不是已保存的项目', '提示')
+                  }
+            }
+        },
+        watch: {
+            'form.language': (newVal) => {
+                const model = editor.getModel()
+                monaco.editor.setModelLanguage(model, newVal)
+            }
+        }
+    })
+    window.onload = function() {
+        require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            // Monaco Editor environment is ready
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: data.value,
+                language: 'json'
+            });
+            window.addEventListener('resize', function () {
+                editor.layout();
+            })
+            Object.defineProperty(data, 'value', {
+                get: function() {
+                    return editor.getValue()
+                },
+                set: function(value) {
+                    editor.setValue(value)
+                    this._myProperty = value;
+                },
+                enumerable: true,
+                configurable: true
+            })
+        })
+    }
+
+</script>
+</html>
