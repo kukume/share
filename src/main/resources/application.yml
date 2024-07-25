@@ -1,9 +1,0 @@
-spring:
-  ktor:
-    port: 2345
-    thymeleaf:
-      cache: false
-  data:
-    mongodb:
-      uri: mongodb://172.17.0.1/share
-      auto-index-creation: true

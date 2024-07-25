@@ -1,0 +1,11 @@
+ktor:
+  deployment:
+    port: 8080
+  application:
+    modules:
+      - me.kuku.share.controller.ApiControllerKt.api
+      - me.kuku.share.controller.IndexControllerKt.index
+      - me.kuku.share.config.KtorConfigKt.config
+  mongo:
+    uri: 'mongodb://172.17.0.1:27017'
+    database: 'share'

@@ -1,37 +1,26 @@
 package me.kuku.share.entity
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.mongodb.core.index.Indexed
-import org.springframework.data.mongodb.core.mapping.Document
-import org.springframework.data.repository.kotlin.CoroutineCrudRepository
-import org.springframework.stereotype.Service
+import com.mongodb.client.model.Filters.eq
+import com.mongodb.client.model.ReplaceOptions
+import kotlinx.coroutines.flow.firstOrNull
+import me.kuku.share.mongoDatabase
+import org.bson.codecs.pojo.annotations.BsonId
+import org.bson.types.ObjectId
 
-@Document("data")
-class DataEntity {
-    @Id
-    var id: String? = null
-    @Indexed(unique = true)
-    var password: String = ""
-    var text: String = ""
+val dataCollection = mongoDatabase.getCollection<DataEntity>("data")
+
+data class DataEntity(
+    @BsonId var id: ObjectId? = null,
+    var password: String = "",
+    var text: String = "",
     var language: String = ""
-}
+)
 
-interface DataRepository: CoroutineCrudRepository<DataEntity, String> {
-
-    suspend fun findByPassword(password: String): DataEntity?
-
-    suspend fun deleteByPassword(password: String)
-
-}
-
-@Service
-class DataService(
-    private val dataRepository: DataRepository
-) {
-    suspend fun save(dataEntity: DataEntity): DataEntity = dataRepository.save(dataEntity)
-
-    suspend fun findByPassword(password: String) = dataRepository.findByPassword(password)
-
-    suspend fun deleteByPassword(password: String) = dataRepository.deleteByPassword(password)
-
+object DataService {
+    suspend fun findByPassword(password: String) = dataCollection.find(eq("password", password)).firstOrNull()
+    suspend fun save(entity: DataEntity): DataEntity {
+        dataCollection.replaceOne(eq("_id", entity.id), entity, ReplaceOptions().upsert(true))
+        return entity
+    }
+    suspend fun deleteByPassword(password: String) = dataCollection.deleteOne(eq(DataEntity::password.name, password))
 }

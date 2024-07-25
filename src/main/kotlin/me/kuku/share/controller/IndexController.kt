@@ -7,29 +7,23 @@ import io.ktor.server.routing.*
 import io.ktor.server.thymeleaf.*
 import io.ktor.server.util.*
 import me.kuku.share.entity.DataService
-import org.springframework.stereotype.Component
 
-@Component
-class IndexController(
-    private val dataService: DataService
-) {
-
-    fun Routing.test() {
+fun Application.index() {
+    routing {
         get {
             call.respondTemplate("share/index")
         }
 
         get("{password}") {
             val password = call.parameters.getOrFail("password")
-            dataService.findByPassword(password) ?: throw NotFoundException()
+            DataService.findByPassword(password) ?: throw NotFoundException()
             call.respondTemplate("share/index", mapOf("password" to password))
         }
 
         get("{password}/preview") {
             val password = call.parameters.getOrFail("password")
-            val entity = dataService.findByPassword(password) ?: throw NotFoundException()
+            val entity = DataService.findByPassword(password) ?: throw NotFoundException()
             call.respondText(entity.text)
         }
     }
-
 }
